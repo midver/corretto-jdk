@@ -24,6 +24,10 @@ dependencies {
     compile project(path: ':prebuild', configuration: 'cacerts')
 }
 
+def imageDir = "$buildRoot/build/${project.jdkImageName}/images"
+def jdkResultingImage = "${imageDir}/jdk"
+def testResultingImage = "${imageDir}/test"
+
 // deps
 def depsMap = [:]
 project.configurations.compile.getFiles().each { depsMap[it.getName()] = it }
@@ -53,21 +57,20 @@ task configureBuild(type: Exec) {
 task executeBuild(type: Exec) {
     dependsOn configureBuild
     workingDir buildRoot
-
-    commandLine 'make', 'images', 'test-image'
+    commandLine 'make', 'images'
+    outputs.dir jdkResultingImage
 }
 
-task copyImage(type: Copy) {
+task createTestImage(type: Exec) {
     dependsOn executeBuild
-
-    from "${executeBuild.workingDir}/build/${project.jdkImageName}/images"
-    into "$buildRoot/build"
+    workingDir "$buildRoot"
+    commandLine 'make','test-image'
 }
 
 task packageTestImage(type: Zip) {
-    dependsOn copyImage
-    archiveName "${project.correttoTestImageArchiveName}.zip"
-    from("${copyImage.destinationDir}/test") {
+    dependsOn createTestImage
+    archiveFileName = "${project.correttoTestImageArchiveName}.zip"
+    from(testResultingImage) {
         include '**'
     }
     into project.correttoTestImageArchiveName
@@ -75,9 +78,9 @@ task packageTestImage(type: Zip) {
 
 task packageDebugSymbols(type: Zip) {
     dependsOn packageTestImage
-    archiveName "${project.correttoDebugSymbolsArchiveName}.zip"
+    archiveFileName = "${project.correttoDebugSymbolsArchiveName}.zip"
 
-    from("${copyImage.destinationDir}/jdk") {
+    from(jdkResultingImage) {
         include 'bin/*.diz'
         include 'lib/*.diz'
         include 'lib/server/*.diz'
@@ -87,9 +90,9 @@ task packageDebugSymbols(type: Zip) {
 
 task packageBuildResults(type: Zip) {
     dependsOn packageDebugSymbols
-    archiveName  = "unsigned-jdk-image.zip"
+    archiveFileName = "unsigned-jdk-image.zip"
 
-    from("${copyImage.destinationDir}/jdk") {
+    from(jdkResultingImage) {
         exclude 'demo'
         exclude '**/*.diz'
     }

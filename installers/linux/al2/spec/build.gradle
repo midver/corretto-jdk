@@ -64,8 +64,8 @@ task inflateRpmSpec {
 
 task copySourceTar(type: Tar) {
     dependsOn project.configurations.compile, inflateRpmSpec
-    compression Compression.GZIP
-    archiveName project.configurations.compile.singleFile.name
+    compression = Compression.GZIP
+    archiveFileName = project.configurations.compile.singleFile.name
     from("$buildDir") {
         include "java-${project.version.major}-amazon-corretto.spec"
         into 'rpm'
@@ -73,10 +73,14 @@ task copySourceTar(type: Tar) {
     from(tarTree(project.configurations.compile.singleFile)) {
         into '/'
     }
+    // Include the man pages tarball if it exists
+    from(file("${buildDir}/distributions/jdk${project.version.major}-manpages.tar.gz")) {
+        into '/'
+    }
 }
 
 task rpmBuild(type: Exec) {
-  dependsOn copySourceTar
+    dependsOn copySourceTar
     workingDir "$buildDir"
     executable = '/usr/bin/rpmbuild'
     args  = ['-vv',
